@@ -23,4 +23,14 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Application\Features\Users\Commands\" />
+    <Folder Include="Application\Features\Users\Queries\" />
+    <Folder Include="Domain\Interfaces\" />
+    <Folder Include="Infrastructure\Persistence\Configurations\" />
+    <Folder Include="Infrastructure\Persistence\Repositories\" />
+    <Folder Include="WebAPI\Controllers\" />
+    <Folder Include="WebAPI\DTOs\" />
+  </ItemGroup>
+
 </Project>
