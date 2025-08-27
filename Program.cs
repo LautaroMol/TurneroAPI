@@ -22,7 +22,7 @@ builder.Services.AddAuthentication(options =>
     })
     .AddJwtBearer(options =>
     {
-        options.Authority = $"https://{builder.Configuration["Auth0:Domain"]}";
+        options.Authority = $"https://{builder.Configuration["Auth0:Domain"]}/";
         options.Audience = builder.Configuration["Auth0:Audience"];
 
         // AÑADE ESTA SECCIÓN PARA LOGGING DETALLADO
@@ -58,6 +58,7 @@ builder.Services.AddTransient<IEmailService, EmailService>();
 // 3. Add Custom Services
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddHttpClient();
 
 
 builder.Services.AddControllers();

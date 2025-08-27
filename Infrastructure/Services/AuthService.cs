@@ -1,78 +1,94 @@
 using Microsoft.EntityFrameworkCore;
+using System.Net.Http.Headers;
 using System.Security.Claims;
+using System.Text.Json;
+using TurneroAPI.Application.DTOs;
 using TurneroAPI.Application.Interfaces;
 using TurneroAPI.Domain.Entities;
 
 namespace TurneroAPI.Infrastructure.Services
 {
-    // Este es el servicio de autenticación que interactúa con Auth0.
-    // Su responsabilidad principal es asegurar que exista un usuario en tu base de datos local
-    // que corresponda al usuario que ha iniciado sesión a través de Auth0.
     public class AuthService : IAuthService
     {
         private readonly IApplicationDbContext _context;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IHttpClientFactory _httpClientFactory;
 
-        public AuthService(IApplicationDbContext context, IHttpContextAccessor httpContextAccessor)
+        public AuthService(IApplicationDbContext context, IHttpContextAccessor httpContextAccessor, IHttpClientFactory httpClientFactory)
         {
             _context = context;
             _httpContextAccessor = httpContextAccessor;
+            _httpClientFactory = httpClientFactory;
         }
 
-        /// <summary>
-        /// Obtiene el usuario de la base de datos local que corresponde al usuario autenticado por Auth0.
-        /// Si el usuario no existe en la base de datos local, lo crea.
-        /// </summary>
-        /// <returns>La entidad User de la base de datos local.</returns>
         public async Task<User> GetOrCreateUserAsync()
         {
-            // 1. OBTENER EL ID DE AUTH0 DEL TOKEN
-            // Cuando un usuario inicia sesión en el frontend con Auth0, Auth0 emite un JWT (JSON Web Token).
-            // El frontend envía este token en el encabezado de autorización de cada solicitud a tu API.
-            // El middleware de autenticación de ASP.NET Core valida el token y extrae la información (claims).
-            // El 'NameIdentifier' es el 'sub' (subject) de Auth0, que es el ID de usuario único.
-            var auth0Id = _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var httpContext = _httpContextAccessor.HttpContext ?? throw new UnauthorizedAccessException("No se pudo acceder al contexto HTTP.");
 
-            if (string.IsNullOrEmpty(auth0Id))
-            {
-                // Esto no debería ocurrir si el endpoint está protegido con [Authorize]
-                throw new UnauthorizedAccessException("No se pudo encontrar el identificador del usuario en el token.");
-            }
+            var auth0Id = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? throw new UnauthorizedAccessException("No se encontró el identificador del usuario (sub).");
 
-            // 2. BUSCAR AL USUARIO EN TU BASE DE DATOS
-            // Usamos el ID de Auth0 para ver si ya tenemos un registro para este usuario.
             var user = await _context.Users.FirstOrDefaultAsync(u => u.IdentityId == auth0Id);
 
-            // 3. SI EL USUARIO NO EXISTE, CREARLO
-            if (user == null)
+            // Si el usuario no existe, o si existe pero está incompleto, lo creamos/actualizamos.
+            if (user == null || string.IsNullOrEmpty(user.Email))
             {
-                // Extraemos información adicional del token para crear un perfil de usuario básico.
-                var email = _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.Email) ?? string.Empty;
-                var firstName = _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.GivenName) ?? string.Empty;
-                var lastName = _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.Surname) ?? string.Empty;
+                var userInfo = await GetUserInfoFromAuth0Async();
 
-                // Creamos la nueva entidad User.
-                user = new User
+                if (user == null)
                 {
-                    IdentityId = auth0Id, // Este es el vínculo crucial con Auth0.
-                    Email = email,
-                    FirstName = firstName,
-                    LastName = lastName,
-                    // Puedes asignar roles por defecto o dejarlos vacíos para asignarlos después.
-                    Roles = "Paciente",
-                    // El DNI y otros campos obligatorios deberán ser completados por el usuario más tarde.
-                    // Aquí los inicializamos para que la entidad sea válida.
-                    Dni = "DNI Pendiente",
-                    AreaCode = string.Empty
-                };
+                    // Caso 1: El usuario no existe, lo creamos.
+                    user = new User
+                    {
+                        IdentityId = auth0Id,
+                        Email = userInfo.Email,
+                        FirstName = userInfo.GivenName,
+                        LastName = userInfo.FamilyName,
+                        Roles = "Paciente", // rol por defecto
+                        Dni = "Pendiente",
+                        AreaCode = string.Empty
+                    };
+                    _context.Users.Add(user);
+                }
+                else
+                {
+                    // Caso 2: El usuario existe pero está incompleto, lo actualizamos.
+                    user.Email = userInfo.Email;
+                    user.FirstName = userInfo.GivenName;
+                    user.LastName = userInfo.FamilyName;
+                    _context.Users.Update(user);
+                }
 
-                // Guardamos el nuevo usuario en la base de datos.
-                _context.Users.Add(user);
-                await _context.SaveChangesAsync(new CancellationToken());
+                await _context.SaveChangesAsync(CancellationToken.None);
             }
 
-            // 4. DEVOLVER EL USUARIO (EXISTENTE O RECIÉN CREADO)
             return user;
+        }
+
+        private async Task<Auth0UserDto> GetUserInfoFromAuth0Async()
+        {
+            var httpContext = _httpContextAccessor.HttpContext;
+            var accessToken = httpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+
+            if (string.IsNullOrEmpty(accessToken))
+            {
+                throw new UnauthorizedAccessException("No se proporcionó un token de acceso.");
+            }
+
+            var client = _httpClientFactory.CreateClient();
+            var request = new HttpRequestMessage(HttpMethod.Get, "https://dev-dt0bwdavp7b00fif.us.auth0.com/userinfo");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+            var response = await client.SendAsync(request);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new Exception("No se pudo obtener la información del usuario desde Auth0.");
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            var userInfo = JsonSerializer.Deserialize<Auth0UserDto>(content);
+
+            return userInfo ?? throw new Exception("La información del usuario recibida de Auth0 es inválida.");
         }
     }
 }
