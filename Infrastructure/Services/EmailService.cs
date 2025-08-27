@@ -1,9 +1,10 @@
 using System.Net;
 using System.Net.Mail;
 using Microsoft.Extensions.Options;
+using TurneroAPI.Application.Interfaces;
 using TurneroAPI.Settings;
 
-namespace TurneroAPI.Services
+namespace TurneroAPI.Infrastructure.Services
 {
     public class EmailService : IEmailService
     {

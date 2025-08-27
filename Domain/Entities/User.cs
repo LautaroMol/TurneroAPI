@@ -26,16 +26,17 @@ namespace TurneroAPI.Domain.Entities
         public string Email { get; set; } = string.Empty;
 
         /// <summary>
-        /// Contraseña hasheada (nunca guardes la contraseña en texto plano).
+        /// Identificador único del proveedor de identidad (ej. Auth0).
+        /// Este campo es crucial para vincular al usuario local con el proveedor externo.
         /// </summary>
         [Required]
-        public string PasswordHash { get; set; } = string.Empty;
+        public string IdentityId { get; set; } = string.Empty;
 
         /// <summary>
-        /// Roles del usuario (ej. "Paciente", "Médico", "Admin").
-        /// Guardar como lista para soportar múltiples roles.
+                /// Roles del usuario (ej. "Paciente", "Médico", "Admin").
+        /// Se guarda como un string simple o separado por comas.
         /// </summary>
-        public ICollection<string> Roles { get; set; } = new List<string>();
+        public string Roles { get; set; } = string.Empty;
 
         /// <summary>
         /// Especialidad del médico (si aplica).

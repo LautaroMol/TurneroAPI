@@ -1,4 +1,4 @@
-namespace TurneroAPI.Services
+namespace TurneroAPI.Application.Interfaces
 {
     public interface IEmailService
     {

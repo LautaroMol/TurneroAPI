@@ -1,10 +1,20 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using TurneroAPI.Application.Interfaces;
+using TurneroAPI.Infrastructure.Persistence;
+using TurneroAPI.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
-// 1. Add Auth0 Authentication Services
+// 1. Add DbContext
+builder.Services.AddDbContext<TurneroAPI.Infrastructure.Persistence.ApplicationDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<TurneroAPI.Infrastructure.Persistence.ApplicationDbContext>());
+
+// 2. Add Auth0 Authentication Services
 builder.Services.AddAuthentication(options =>
     {
         options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -14,13 +24,40 @@ builder.Services.AddAuthentication(options =>
     {
         options.Authority = $"https://{builder.Configuration["Auth0:Domain"]}";
         options.Audience = builder.Configuration["Auth0:Audience"];
+
+        // AÑADE ESTA SECCIÓN PARA LOGGING DETALLADO
+        options.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = context =>
+            {
+                Console.WriteLine("Authentication failed: " + context.Exception.Message);
+                if (context.Exception.InnerException != null)
+                {
+                    Console.WriteLine("Inner Exception: " + context.Exception.InnerException.Message);
+                }
+                return Task.CompletedTask;
+            },
+            OnTokenValidated = context =>
+            {
+                Console.WriteLine("Token successfully validated!");
+                // Puedes inspeccionar el contexto aquí si quieres ver los claims
+                // var claims = context.Principal.Claims;
+                return Task.CompletedTask;
+            }
+        };
+        // FIN DE LA SECCIÓN DE LOGGING
     });
 
 builder.Services.AddAuthorization();
 
 // 2. Add Email Services and Settings
 builder.Services.Configure<TurneroAPI.Settings.GmailSettings>(builder.Configuration.GetSection("GmailSettings"));
-builder.Services.AddTransient<TurneroAPI.Services.IEmailService, TurneroAPI.Services.EmailService>();
+builder.Services.AddTransient<IEmailService, EmailService>();
+
+
+// 3. Add Custom Services
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 
 builder.Services.AddControllers();
