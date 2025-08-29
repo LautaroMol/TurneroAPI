@@ -11,10 +11,12 @@ namespace TurneroAPI.Controllers
     public class UsersController : ControllerBase
     {
         private readonly IAuthService _authService;
+        private readonly IUserService _userService;
 
-        public UsersController(IAuthService authService)
+        public UsersController(IAuthService authService, IUserService userService)
         {
             _authService = authService;
+            _userService = userService;
         }
 
         /// <summary>
@@ -32,11 +34,44 @@ namespace TurneroAPI.Controllers
                 FullName = $"{userProfile.FirstName} {userProfile.LastName}",
                 Roles = userProfile.Roles,
                 Dni = userProfile.Dni,
-                PhoneNumber = userProfile.PhoneNumber ?? string.Empty,
+                PhoneNumber = $"{userProfile.AreaCode} {userProfile.PhoneNumber}".Trim(),
                 Speciality = userProfile.Speciality ?? string.Empty
             };
 
             return Ok(dto);
+        }
+
+        /// <summary>
+        /// Actualiza el perfil del usuario autenticado (para pacientes o roles sin perfil específico).
+        /// </summary>
+        [HttpPut("me")]
+        public async Task<IActionResult> UpdateMyProfile([FromBody] UserUpdateDto updateDto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var updatedProfile = await _userService.UpdateCurrentUserProfileAsync(updateDto);
+
+            return Ok(updatedProfile);
+        }
+
+        /// <summary>
+        /// Actualiza el perfil del usuario autenticado con rol de Médico.
+        /// </summary>
+        [HttpPut("me/medic-profile")]
+        [Authorize(Roles = "Médico")]
+        public async Task<IActionResult> UpdateMyMedicProfile([FromBody] MedicUpdateDto updateDto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var updatedProfile = await _userService.UpdateCurrentMedicProfileAsync(updateDto);
+
+            return Ok(updatedProfile);
         }
     }
 }

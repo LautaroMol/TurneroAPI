@@ -1,8 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using System.Net.Http.Headers;
 using System.Security.Claims;
-using System.Text.Json;
-using TurneroAPI.Application.DTOs;
 using TurneroAPI.Application.Interfaces;
 using TurneroAPI.Domain.Entities;
 
@@ -12,83 +9,64 @@ namespace TurneroAPI.Infrastructure.Services
     {
         private readonly IApplicationDbContext _context;
         private readonly IHttpContextAccessor _httpContextAccessor;
-        private readonly IHttpClientFactory _httpClientFactory;
+        
+        private const string Namespace = "https://api.turnero.com/";
+        private const string RolesClaimType = Namespace + "roles";
+        private const string DesiredRoleClaimType = Namespace + "desired_role"; // El nuevo claim
+        private const string EmailClaimType = Namespace + "email";
+        private const string GivenNameClaimType = Namespace + "given_name";
+        private const string FamilyNameClaimType = Namespace + "family_name";
 
-        public AuthService(IApplicationDbContext context, IHttpContextAccessor httpContextAccessor, IHttpClientFactory httpClientFactory)
+        public AuthService(IApplicationDbContext context, IHttpContextAccessor httpContextAccessor)
         {
             _context = context;
             _httpContextAccessor = httpContextAccessor;
-            _httpClientFactory = httpClientFactory;
         }
 
         public async Task<User> GetOrCreateUserAsync()
         {
             var httpContext = _httpContextAccessor.HttpContext ?? throw new UnauthorizedAccessException("No se pudo acceder al contexto HTTP.");
+            var claims = httpContext.User.Claims;
 
-            var auth0Id = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? throw new UnauthorizedAccessException("No se encontró el identificador del usuario (sub).");
+            var auth0Id = claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value ?? throw new UnauthorizedAccessException("No se encontró el identificador del usuario (sub).");
 
             var user = await _context.Users.FirstOrDefaultAsync(u => u.IdentityId == auth0Id);
 
-            // Si el usuario no existe, o si existe pero está incompleto, lo creamos/actualizamos.
-            if (user == null || string.IsNullOrEmpty(user.Email))
+            if (user == null)
             {
-                var userInfo = await GetUserInfoFromAuth0Async();
+                // El usuario no existe, lo creamos.
+                var desiredRole = claims.FirstOrDefault(c => c.Type == DesiredRoleClaimType)?.Value;
 
-                if (user == null)
+                user = new User
                 {
-                    // Caso 1: El usuario no existe, lo creamos.
-                    user = new User
-                    {
-                        IdentityId = auth0Id,
-                        Email = userInfo.Email,
-                        FirstName = userInfo.GivenName,
-                        LastName = userInfo.FamilyName,
-                        Roles = "Paciente", // rol por defecto
-                        Dni = "Pendiente",
-                        AreaCode = string.Empty
-                    };
-                    _context.Users.Add(user);
-                }
-                else
-                {
-                    // Caso 2: El usuario existe pero está incompleto, lo actualizamos.
-                    user.Email = userInfo.Email;
-                    user.FirstName = userInfo.GivenName;
-                    user.LastName = userInfo.FamilyName;
-                    _context.Users.Update(user);
-                }
-
+                    IdentityId = auth0Id,
+                    Email = claims.FirstOrDefault(c => c.Type == EmailClaimType)?.Value ?? string.Empty,
+                    FirstName = claims.FirstOrDefault(c => c.Type == GivenNameClaimType)?.Value ?? "Usuario",
+                    LastName = claims.FirstOrDefault(c => c.Type == FamilyNameClaimType)?.Value ?? string.Empty,
+                    // Si hay un rol deseado en el token, lo usamos. Si no, 'Paciente' por defecto.
+                    Roles = desiredRole ?? "Paciente", 
+                    Dni = "Pendiente",
+                    AreaCode = string.Empty
+                };
+                _context.Users.Add(user);
                 await _context.SaveChangesAsync(CancellationToken.None);
+            }
+            else
+            {
+                // El usuario ya existe, sincronizamos los roles por si cambiaron en Auth0 (ej. un admin lo ascendió).
+                var rolesFromToken = claims.Where(c => c.Type == RolesClaimType).Select(c => c.Value);
+                var rolesString = rolesFromToken.Any() ? string.Join(",", rolesFromToken) : user.Roles; // No sobrescribir con vacío
+
+                if (user.Roles != rolesString)
+                {
+                    user.Roles = rolesString;
+                    _context.Users.Update(user);
+                    await _context.SaveChangesAsync(CancellationToken.None);
+                }
             }
 
             return user;
         }
-
-        private async Task<Auth0UserDto> GetUserInfoFromAuth0Async()
-        {
-            var httpContext = _httpContextAccessor.HttpContext;
-            var accessToken = httpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-
-            if (string.IsNullOrEmpty(accessToken))
-            {
-                throw new UnauthorizedAccessException("No se proporcionó un token de acceso.");
-            }
-
-            var client = _httpClientFactory.CreateClient();
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://dev-dt0bwdavp7b00fif.us.auth0.com/userinfo");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-
-            var response = await client.SendAsync(request);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                throw new Exception("No se pudo obtener la información del usuario desde Auth0.");
-            }
-
-            var content = await response.Content.ReadAsStringAsync();
-            var userInfo = JsonSerializer.Deserialize<Auth0UserDto>(content);
-
-            return userInfo ?? throw new Exception("La información del usuario recibida de Auth0 es inválida.");
-        }
     }
 }
+

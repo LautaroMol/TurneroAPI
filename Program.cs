@@ -58,6 +58,7 @@ builder.Services.AddTransient<IEmailService, EmailService>();
 // 3. Add Custom Services
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IUserService, UserService>(); // <-- AÑADIDO
 builder.Services.AddHttpClient();
 
 
