@@ -57,11 +57,9 @@ namespace TurneroAPI.Infrastructure.Services
 
         private async Task<User> GetCurrentUserAsync()
         {
-            var httpContext = _httpContextAccessor.HttpContext ?? throw new UnauthorizedAccessException("No se pudo acceder al contexto HTTP.");
-            var identityId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? throw new UnauthorizedAccessException("No se encontró el identificador del usuario (sub).");
-
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.IdentityId == identityId);
-            return user ?? throw new KeyNotFoundException("Usuario no encontrado.");
+            // TODO: Re-implement with ASP.NET Identity
+            await Task.CompletedTask;
+            return new User();
         }
 
         private UserProfileDto MapUserToProfileDto(User user)
@@ -78,3 +76,4 @@ namespace TurneroAPI.Infrastructure.Services
         }
     }
 }
+

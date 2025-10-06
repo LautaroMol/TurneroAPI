@@ -13,5 +13,7 @@ namespace TurneroAPI.Application.Interfaces
         /// </summary>
         /// <returns>La entidad User de la base de datos local.</returns>
         Task<User> GetOrCreateUserAsync();
+
+
     }
 }

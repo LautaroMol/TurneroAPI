@@ -1,11 +1,18 @@
-﻿# Requerimientos del turnero Médico con Auth0
+﻿# Requerimientos del turnero Médico con ASP.NET Identity
 
 Este documento define las funcionalidades y requisitos clave del sistema a desarrollar.
 
 ---
 
+## Paquetes necesarios
+- `Microsoft.AspNetCore.Authentication.JwtBearer`
+- `Microsoft.AspNetCore.Identity.EntityFrameworkCore`
+- `System.IdentityModel.Tokens.Jwt`
+
+---
+
 ## 1. Autenticación y Autorización
-- **Auth0** como proveedor de autenticación.
+- **ASP.NET Identity** como proveedor de autenticación.
 - Registro e inicio de sesión para:
   - Médicos
   - Usuarios (pacientes)
@@ -63,7 +70,7 @@ Este documento define las funcionalidades y requisitos clave del sistema a desar
 ---
 
 ## 6. Seguridad
-- Autenticación centralizada con Auth0.
+- Autenticación centralizada con ASP.NET Identity.
 - Tokens JWT para proteger endpoints.
 - Validación de permisos en controladores.
 - Configuración de CORS para limitar accesos.
@@ -87,8 +94,17 @@ Este documento define las funcionalidades y requisitos clave del sistema a desar
 - Backend: ASP.NET Core 8 Web API
 - Base de datos: SQL Server
 - ORM: Entity Framework Core
-- Autenticación: Auth0 (OAuth2 / OpenID Connect)
+- Autenticación: ASP.NET Identity
 - Email: Servicio SMTP o proveedor externo (SendGrid, MailKit)
 - Integración de colas (opcional) para tareas programadas.
 
 ---
+
+## 9. Chat bot y asistencia
+- Integración de un chat bot para asistencia básica en el front, recordar y consultar consultas del dia.
+- El chat bot puede estar basado en IA para responder preguntas frecuentes.
+- El chat bot puede integrarse con servicios como Dialogflow, Microsoft Bot Framework o similares.
+- El chat bot puede enviar notificaciones y recordatorios a los usuarios sobre sus citas y horarios.
+- El chat bot puede ofrecer soporte en tiempo real para resolver dudas sobre el uso del sistema.
+- El chat bot puede integrarse con el sistema de autenticación para personalizar la experiencia del usuario.
+- 

@@ -14,39 +14,7 @@ builder.Services.AddDbContext<TurneroAPI.Infrastructure.Persistence.ApplicationD
 
 builder.Services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<TurneroAPI.Infrastructure.Persistence.ApplicationDbContext>());
 
-// 2. Add Auth0 Authentication Services
-builder.Services.AddAuthentication(options =>
-    {
-        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-    })
-    .AddJwtBearer(options =>
-    {
-        options.Authority = $"https://{builder.Configuration["Auth0:Domain"]}/";
-        options.Audience = builder.Configuration["Auth0:Audience"];
-
-        // AÑADE ESTA SECCIÓN PARA LOGGING DETALLADO
-        options.Events = new JwtBearerEvents
-        {
-            OnAuthenticationFailed = context =>
-            {
-                Console.WriteLine("Authentication failed: " + context.Exception.Message);
-                if (context.Exception.InnerException != null)
-                {
-                    Console.WriteLine("Inner Exception: " + context.Exception.InnerException.Message);
-                }
-                return Task.CompletedTask;
-            },
-            OnTokenValidated = context =>
-            {
-                Console.WriteLine("Token successfully validated!");
-                // Puedes inspeccionar el contexto aquí si quieres ver los claims
-                // var claims = context.Principal.Claims;
-                return Task.CompletedTask;
-            }
-        };
-        // FIN DE LA SECCIÓN DE LOGGING
-    });
+// TODO: Add JWT Authentication
 
 builder.Services.AddAuthorization();
 

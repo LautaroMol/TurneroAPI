@@ -9,10 +9,7 @@ namespace TurneroAPI.Application.Interfaces;
 /// </summary>
 public interface IApplicationDbContext
 {
-    /// <summary>
-    /// Gets or sets the DbSet for Users.
-    /// </summary>
-    DbSet<User> Users { get; }
+
 
     /// <summary>
     /// Saves changes made to the context.

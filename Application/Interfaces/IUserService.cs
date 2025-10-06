@@ -20,5 +20,7 @@ namespace TurneroAPI.Application.Interfaces
         /// <param name="updateDto">Datos para actualizar el perfil del médico.</param>
         /// <returns>El perfil del médico actualizado.</returns>
         Task<UserProfileDto> UpdateCurrentMedicProfileAsync(MedicUpdateDto updateDto);
+
+
     }
 }
